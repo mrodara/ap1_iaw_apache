@@ -1,0 +1,46 @@
+services:
+  
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/mysql
+      - type: bind
+        source: ./apache/initdb/01-seed.sql
+        target: /docker-entrypoint-initdb.d/01-seed.sql
+        read_only: true
+        bind:
+          create_host_path: false
+    networks:
+      - lamp
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$$MYSQL_ROOT_PASSWORD\" mysql --protocol=TCP -h 127.0.0.1 -u root --connect-timeout=2 -Nse 'SELECT 1' >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 4s
+      retries: 4
+      start_period: 30s
+
+  web:
+    build: .
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - 8080:80
+    networks:
+      - lamp
+    depends_on:
+      db:
+        condition: service_healthy
+networks:
+  lamp:
+
+volumes:
+  db_data:
+  
